@@ -42,3 +42,13 @@ ___Want a minimal version of this project to build your own Node.js app? Check o
 
 - Need more help? [Check out our Help Center](https://help.glitch.com/) for answers to any common questions.
 - Ready to make it official? [Become a paid Glitch member](https://glitch.com/pricing) to boost your app with private sharing, more storage and memory, domains and more.
+
+## Configuration
+
+Copy `.env.example` to `.env` and fill in the values for your MongoDB connection and API keys:
+
+```
+cp .env.example .env
+```
+
+At a minimum set `MONGODB_URI`, `DB_NAME`, `GROQ_API_KEY` and `MCP_API_KEY` before starting the server.

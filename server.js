@@ -3,7 +3,7 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 const { askGroq } = require('./services/groqService');
-const { runQuery } = require('./services/mongoService');
+const { runQuery, connect: connectMongo, close: closeMongo } = require('./services/mongoService');
 
 const app = express();
 app.set('trust proxy', 'loopback'); // Safe proxy trust for rate limiter
@@ -81,4 +81,22 @@ app.get('/debug', async (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`MCP Server running on port ${PORT}`));
+
+async function start() {
+  try {
+    await connectMongo();
+    const server = app.listen(PORT, () => {
+      console.log(`MCP Server running on port ${PORT}`);
+    });
+
+    process.on('SIGINT', async () => {
+      await closeMongo();
+      server.close(() => process.exit(0));
+    });
+  } catch (err) {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  }
+}
+
+start();
