@@ -4,13 +4,27 @@ const rateLimit = require('express-rate-limit');
 const cors = require('cors');
 
 // Simple MongoDB injection sanitizer
+// Remove only obviously dangerous keys like `$where` but keep
+// valid MongoDB operators used in queries and aggregation pipelines.
 function sanitizeMongo(obj) {
+  const blocked = new Set(['$where', '$function', '$accumulator']);
+
   if (Array.isArray(obj)) {
     obj.forEach(sanitizeMongo);
   } else if (obj && typeof obj === 'object') {
     for (const key of Object.keys(obj)) {
-      if (key.startsWith('$') || key.includes('.')) {
+      if (key.includes('.')) {
         delete obj[key];
+        continue;
+      }
+
+      if (key.startsWith('$')) {
+        if (blocked.has(key)) {
+          delete obj[key];
+          continue;
+        }
+        // keep valid $ operators but sanitize their values
+        sanitizeMongo(obj[key]);
       } else {
         sanitizeMongo(obj[key]);
       }
