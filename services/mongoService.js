@@ -16,18 +16,25 @@ const runQuery = async ({ collection, operation, query, projection, options }) =
 
     if (operation === 'find') {
       const findOptions = {};
-      if (projection) findOptions.projection = projection;
+
+      if (projection) {
+        if (!('_id' in projection)) projection._id = 0;
+        findOptions.projection = projection;
+      }
+
       if (options) Object.assign(findOptions, options);
 
       return await col.find(query, findOptions).toArray();
-    } else if (operation === 'aggregate') {
+    }
+
+    if (operation === 'aggregate') {
       if (!Array.isArray(query)) {
         throw new Error('For aggregate, query must be an array (pipeline)');
       }
       return await col.aggregate(query).toArray();
-    } else {
-      throw new Error(`Unsupported operation: ${operation}`);
     }
+
+    throw new Error(`Unsupported operation: ${operation}`);
   } finally {
     await client.close();
   }

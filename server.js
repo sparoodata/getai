@@ -1,43 +1,76 @@
-// server.js
 require('dotenv').config();
 const express = require('express');
+const rateLimit = require('express-rate-limit');
+const cors = require('cors');
 const { askGroq } = require('./services/groqService');
 const { runQuery } = require('./services/mongoService');
 
 const app = express();
+app.set('trust proxy', 'loopback'); // Safe proxy trust for rate limiter
+
+app.use(cors({ origin: '*' }));
 app.use(express.json());
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 100,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Rate limit exceeded. Try again later.' }
+});
+app.use(limiter);
+
+const authenticate = (req, res, next) => {
+  const key = req.headers['x-api-key'];
+  if (!key || key !== process.env.MCP_API_KEY) {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+  next();
+};
+app.use(authenticate);
 
 app.post('/prompt', async (req, res) => {
   try {
     const prompt = req.body.prompt;
-    const llmResponse = await askGroq(prompt);
+    if (!prompt) return res.status(400).json({ error: 'Prompt is required' });
 
+    const llmResponse = await askGroq(prompt);
     let mongoQuery;
+
     try {
       mongoQuery = JSON.parse(llmResponse);
     } catch (err) {
-      return res.status(400).json({ error: 'Groq response is not valid JSON', raw: llmResponse });
+      return res.status(400).json({ error: 'Groq did not return valid JSON', raw: llmResponse });
+    }
+
+    // Validate & sanitize
+    const { collection, operation, query } = mongoQuery;
+    if (!['tenants', 'units', 'properties'].includes(collection)) {
+      return res.status(400).json({ error: 'Unsupported collection' });
+    }
+
+    if (!['find', 'aggregate'].includes(operation)) {
+      return res.status(400).json({ error: 'Unsupported operation' });
+    }
+
+    // Fix if $lookup used in a find query
+    if (operation === 'find' && query?.$lookup) {
+      mongoQuery.operation = 'aggregate';
+      mongoQuery.query = [query];
+    }
+
+    // Fix if aggregate query is not an array
+    if (mongoQuery.operation === 'aggregate' && !Array.isArray(query)) {
+      mongoQuery.query = [query];
     }
 
     const result = await runQuery(mongoQuery);
     res.json({ success: true, data: result });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: err.message });
   }
-});
-const rateLimit = require('express-rate-limit');
-
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000,  // 15 min window
-  max: 100,                  // limit each IP to 100 requests per window
-  message: { error: 'Rate limit exceeded. Try again later.' }
-});
-
-app.use(limiter);
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] IP: ${req.ip} accessed ${req.originalUrl}`);
-  next();
 });
 
 app.get('/debug', async (req, res) => {
@@ -47,6 +80,5 @@ app.get('/debug', async (req, res) => {
   res.send(`<pre>${llmResponse}</pre>`);
 });
 
-app.listen(process.env.PORT || 3000, () => {
-  console.log('MCP Server running');
-});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`MCP Server running on port ${PORT}`));
