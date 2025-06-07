@@ -1,19 +1,17 @@
-const axios = require('axios');
-
 const askGroq = async (prompt) => {
   const systemPrompt = `
 You are a MongoDB expert.
-Convert the following user prompt into a JSON object containing:
+Convert this user prompt into valid JSON:
 {
   "collection": "collection_name",
   "operation": "find" or "aggregate",
-  "query": the actual MongoDB query (for aggregate, it's a pipeline array)
+  "query": {...}
 }
-Ensure it's directly executable in Node.js MongoDB driver.
+Only return the JSON object.
 `;
 
   const response = await axios.post('https://api.groq.com/openai/v1/chat/completions', {
-    model: 'mixtral-8x7b-32768',
+    model: 'llama3-8b-8192',  // ✅ use supported model
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: prompt }
@@ -26,7 +24,11 @@ Ensure it's directly executable in Node.js MongoDB driver.
     }
   });
 
-  return response.data.choices[0].message.content.trim();
-};
+  const raw = response.data.choices[0].message.content.trim();
 
-module.exports = { askGroq };
+  // ✅ Sanitize output in case it wraps in Markdown/code blocks
+  const cleaned = raw.replace(/```json|```/g, '').trim();
+
+  // 🔥 Log or return as-is instead of parsing directly
+  return cleaned;
+};
