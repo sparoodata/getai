@@ -2,13 +2,32 @@ require('dotenv').config();
 const express = require('express');
 const rateLimit = require('express-rate-limit');
 const cors = require('cors');
+
+// Simple MongoDB injection sanitizer
+function sanitizeMongo(obj) {
+  if (Array.isArray(obj)) {
+    obj.forEach(sanitizeMongo);
+  } else if (obj && typeof obj === 'object') {
+    for (const key of Object.keys(obj)) {
+      if (key.startsWith('$') || key.includes('.')) {
+        delete obj[key];
+      } else {
+        sanitizeMongo(obj[key]);
+      }
+    }
+  }
+  return obj;
+}
 const { askGroq } = require('./services/groqService');
 const { runQuery, connect: connectMongo, close: closeMongo } = require('./services/mongoService');
 
 const app = express();
 app.set('trust proxy', 'loopback'); // Safe proxy trust for rate limiter
 
-app.use(cors({ origin: '*' }));
+const corsOptions = {
+  origin: process.env.CORS_ORIGIN || false
+};
+app.use(cors(corsOptions));
 app.use(express.json());
 
 const limiter = rateLimit({
@@ -63,6 +82,9 @@ app.post('/prompt', async (req, res) => {
     if (mongoQuery.operation === 'aggregate' && !Array.isArray(query)) {
       mongoQuery.query = [query];
     }
+
+    // Sanitize the entire query object before executing
+    sanitizeMongo(mongoQuery);
 
     const result = await runQuery(mongoQuery);
     res.json({ success: true, data: result });

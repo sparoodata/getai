@@ -52,3 +52,7 @@ cp .env.example .env
 ```
 
 At a minimum set `MONGODB_URI`, `DB_NAME`, `GROQ_API_KEY` and `MCP_API_KEY` before starting the server.
+
+### Additional security
+
+Optionally set `CORS_ORIGIN` to limit cross-site requests. All incoming queries are sanitized to remove any MongoDB operators before execution.
