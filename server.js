@@ -26,6 +26,19 @@ app.post('/prompt', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+const rateLimit = require('express-rate-limit');
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000,  // 15 min window
+  max: 100,                  // limit each IP to 100 requests per window
+  message: { error: 'Rate limit exceeded. Try again later.' }
+});
+
+app.use(limiter);
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] IP: ${req.ip} accessed ${req.originalUrl}`);
+  next();
+});
 
 app.get('/debug', async (req, res) => {
   const { prompt } = req.query;

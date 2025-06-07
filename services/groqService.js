@@ -44,10 +44,15 @@ User will give natural language instructions. Convert that into this JSON format
   "options": {}              // Optional: sort, limit, etc.
 }
 
+Clarification:
+- Use "tenants" collection and "monthlyRent" field to calculate total rent across properties.
+- "properties" collection has rentalIncome (static number, not per-tenant rent).
+
 Rules:
-- If user asks for specific fields (e.g., "only names"), use "projection".
-- If prompt is analytical (like totals, averages, group by), use "aggregate".
-- Do not explain. Just return the raw JSON that can be parsed with JSON.parse().
+- If the operation is "aggregate", the "query" field MUST be an array of pipeline stages (e.g., [{ "$group": ... }, { "$sort": ... }]).
+- Do NOT return a single object for aggregate "query". Always use an array.
+- For "find", "query" can be a normal object.
+- Return ONLY a valid JSON object without markdown or text.- Do not explain. Just return the raw JSON that can be parsed with JSON.parse().
 `;
 
 
