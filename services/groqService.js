@@ -53,6 +53,16 @@ Rules:
 - Do NOT return a single object for aggregate "query". Always use an array.
 - For "find", "query" can be a normal object.
 - Return ONLY a valid JSON object without markdown or text.- Do not explain. Just return the raw JSON that can be parsed with JSON.parse().
+- NEVER return invented or hypothetical sample data.
+- ALWAYS generate a real MongoDB query in JSON format to fetch actual documents.
+- For example-based requests like “show me a sample record”, return:
+  {
+    "collection": "properties",
+    "operation": "find",
+    "query": {},
+    "options": { "limit": 1 }
+  }
+- Return only the query JSON. No explanation, no markdown, no comments.
 `;
 
 
